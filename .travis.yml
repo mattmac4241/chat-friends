@@ -1,0 +1,11 @@
+language: go
+go:
+    1.7.x
+install:
+  - go get -v github.com/Masterminds/glide
+  - go get golang.org/x/net/context
+  - go get golang.org/x/net/context/ctxhttp
+  - glide install
+  - cd $GOPATH/src/github.com/mattmac4241/chat-friends
+script:
+ - go test -v github.com/mattmac4241/chat-friends/service
