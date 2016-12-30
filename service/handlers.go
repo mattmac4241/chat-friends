@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -35,7 +34,7 @@ func postAddFriendHandler(formatter *render.Render, database Database) http.Hand
 
 		request = AddFriend(userID, request.UserToID)
 		err = database.insertFriendRequest(request)
-		fmt.Println("CALLED")
+
 		if err != nil {
 			formatter.Text(w, http.StatusBadRequest, "Failed to add request.")
 			return
@@ -44,7 +43,7 @@ func postAddFriendHandler(formatter *render.Render, database Database) http.Hand
 	}
 }
 
-func rejectRequest(formatter *render.Render, database Database) http.HandlerFunc {
+func rejectRequestHandler(formatter *render.Render, database Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
 		key := vars["request_id"]
@@ -54,21 +53,23 @@ func rejectRequest(formatter *render.Render, database Database) http.HandlerFunc
 		}
 		requestID, _ := strconv.ParseUint(key, 10, 32)
 		request, err := database.getFriendRequestByID(uint(requestID))
+
 		if err != nil {
 			formatter.JSON(w, http.StatusNotFound, "No request found.")
 			return
 		}
 		request.reject()
 		err = database.updateFriendRequest(request)
+
 		if err != nil {
-			formatter.JSON(w, http.StatusNotFound, "Failed to update request.")
+			formatter.JSON(w, http.StatusInternalServerError, "Failed to update request.")
 			return
 		}
 		formatter.JSON(w, http.StatusOK, "Request rejected")
 	}
 }
 
-func acceptRequest(formatter *render.Render, database Database) http.HandlerFunc {
+func acceptRequestHandler(formatter *render.Render, database Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
 		key := vars["request_id"]

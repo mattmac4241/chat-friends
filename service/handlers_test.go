@@ -8,13 +8,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/unrolled/render"
+	"github.com/urfave/negroni"
 )
 
 var (
 	formatter = render.New(render.Options{
 		IndentJSON: true,
 	})
+	request  *http.Request
+	recorder *httptest.ResponseRecorder
 )
 
 type testDatabase struct {
@@ -45,6 +49,7 @@ func (t *testDatabase) updateFriendRequest(request FriendRequest) error {
 			(searchedRequest.UserFromID == request.UserToID ||
 				searchedRequest.UserToID == request.UserToID) {
 			t.requests[indx] = request
+			return nil
 		}
 	}
 	return errors.New("Request not found to update")
@@ -79,10 +84,13 @@ func TestPostAddFriendHandlerWithoutAuthKey(t *testing.T) {
 		t.Errorf("Error in creating POST request for registerUserHandler: %v", err)
 		return
 	}
+
 	resp, err := client.Do(req)
+
 	if err != nil {
 		t.Errorf("Error in POST to registerUserHandler: %v", err)
 	}
+
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Error("No auth token sent should have stopped it.")
@@ -137,6 +145,7 @@ func TestPostAddFriendHandlerHandlerNotFriendRequest(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error in creating second POST request for invalid data on create user: %v", err)
 	}
+
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "TEST")
 
@@ -164,11 +173,13 @@ func TestPostAddFriendHandlerHandlerSuccess(t *testing.T) {
 		t.Errorf("Error in creating second POST request for invalid data on create user: %v", err)
 		return
 	}
+
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "TEST")
 
 	resp, _ := client.Do(req)
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusCreated {
 		t.Error("Sending valid JSON but with incorrect or missing fields should result in a bad request and didn't.")
 		return
@@ -177,4 +188,76 @@ func TestPostAddFriendHandlerHandlerSuccess(t *testing.T) {
 		t.Error("Request not added to database")
 		return
 	}
+}
+
+func TestRejectRequestHandlerWithoutValidRequest(t *testing.T) {
+	database := &testDatabase{}
+	server := MakeTestServer(database)
+
+	recorder = httptest.NewRecorder()
+	request, _ = http.NewRequest("PUT", "/friends/1/reject", nil)
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Errorf("Expected %v; received %v", http.StatusNotFound, recorder.Code)
+	}
+}
+
+func TestRejectRequestHandlerWithValidRequest(t *testing.T) {
+	database := &testDatabase{}
+	database.insertFriendRequest(FriendRequest{ID: 1, UserFromID: 1, UserToID: 2})
+
+	server := MakeTestServer(database)
+
+	recorder = httptest.NewRecorder()
+	request, _ = http.NewRequest("PUT", "/friends/1/reject", nil)
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Errorf("Expected %v; received %v", http.StatusOK, recorder.Code)
+	}
+
+	if database.requests[0].RejectedAt.Unix() <= 0 {
+		t.Error("Expected the reqeust to be rejected")
+	}
+}
+
+func TestAcceptRequestHandlerWithoutValidRequest(t *testing.T) {
+	database := &testDatabase{}
+	server := MakeTestServer(database)
+
+	recorder = httptest.NewRecorder()
+	request, _ = http.NewRequest("PUT", "/friends/1/accept", nil)
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Errorf("Expected %v; received %v", http.StatusNotFound, recorder.Code)
+	}
+}
+
+func TestAcceptRequestHandlerWithValidRequest(t *testing.T) {
+	database := &testDatabase{}
+	database.insertFriendRequest(FriendRequest{ID: 1, UserFromID: 1, UserToID: 2})
+
+	server := MakeTestServer(database)
+
+	recorder = httptest.NewRecorder()
+	request, _ = http.NewRequest("PUT", "/friends/1/accept", nil)
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Errorf("Expected %v; received %v", http.StatusOK, recorder.Code)
+	}
+
+	if database.requests[0].AcceptedAt.Unix() <= 0 {
+		t.Error("Expected the reqeust to be rejected")
+	}
+}
+
+func MakeTestServer(database *testDatabase) *negroni.Negroni {
+	server := negroni.New()
+	mx := mux.NewRouter()
+	initRoutes(mx, formatter, database)
+	server.UseHandler(mx)
+	return server
 }
