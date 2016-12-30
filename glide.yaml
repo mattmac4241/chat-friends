@@ -1,0 +1,11 @@
+package: github.com/mattmac4241/chat-friends
+import:
+- package: github.com/gorilla/mux
+- package: github.com/joho/godotenv
+- package: github.com/lib/pq
+- package: github.com/mattmac4241/chat-auth
+  subpackages:
+  - service
+- package: github.com/unrolled/render
+- package: github.com/urfave/negroni
+- package: gopkg.in/redis.v4

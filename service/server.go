@@ -22,7 +22,7 @@ func NewServer() *negroni.Negroni {
 }
 
 func initRoutes(mx *mux.Router, formatter *render.Render, database Database) {
-	mx.HandleFunc("/friends/request", postAddFriend(formatter, database)).Methods("POST")
+	mx.HandleFunc("/friends/request", postAddFriendHandler(formatter, database)).Methods("POST")
 	mx.HandleFunc("/friends/{id}/reject", rejectRequest(formatter, database)).Methods("PUT")
 	mx.HandleFunc("/friends/{id}/accept", acceptRequest(formatter, database)).Methods("PUT")
 	mx.HandleFunc("/friends", getFriendsHandler(formatter, database)).Methods("GET")

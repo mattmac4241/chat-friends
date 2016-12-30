@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -10,26 +11,31 @@ import (
 	"github.com/unrolled/render"
 )
 
-func postAddFriend(formatter *render.Render, database Database) http.HandlerFunc {
+func postAddFriendHandler(formatter *render.Render, database Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		userID, err := getUserFromHeader(req, database)
-		if err != nil {
-			formatter.JSON(w, http.StatusBadRequest, err)
+		if err != nil || userID == uint(0) {
+			formatter.JSON(w, http.StatusForbidden, "No auth header sent")
 			return
 		}
+
 		var request FriendRequest
 		payload, _ := ioutil.ReadAll(req.Body)
 		err = json.Unmarshal(payload, &request)
+
 		if err != nil || (request == FriendRequest{}) {
 			formatter.Text(w, http.StatusBadRequest, "Failed to parse request.")
 			return
 		}
+
 		if hasFriendRequest(userID, request.UserToID, database) == true {
 			formatter.Text(w, http.StatusBadRequest, "Request already exists.")
 			return
 		}
+
 		request = AddFriend(userID, request.UserToID)
 		err = database.insertFriendRequest(request)
+		fmt.Println("CALLED")
 		if err != nil {
 			formatter.Text(w, http.StatusBadRequest, "Failed to add request.")
 			return
