@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"errors"
 	"net/http"
 	"strconv"
@@ -27,4 +28,19 @@ func getFriendRequest(userIDFrom, userIDTo uint, database Database) (FriendReque
 func hasFriendRequest(userIDFrom, userIDTo uint, database Database) bool {
 	request, err := getFriendRequest(userIDFrom, userIDTo, database)
 	return request != FriendRequest{} && err == nil
+}
+
+func conevertRowsToRequests(rows *sql.Rows) []FriendRequest {
+	var requests []FriendRequest
+	defer rows.Close()
+	for rows.Next() {
+		var request FriendRequest
+		err := rows.Scan(request.ID,
+			request.UserFromID, request.UserToID, request.CreatedAt,
+			request.AcceptedAt, request.RejectedAt)
+		if err == nil {
+			requests = append(requests, request)
+		}
+	}
+	return requests
 }

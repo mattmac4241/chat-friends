@@ -58,7 +58,7 @@ func rejectRequest(formatter *render.Render, database Database) http.HandlerFunc
 			formatter.JSON(w, http.StatusNotFound, "Failed to update request.")
 			return
 		}
-		formatter.Text(w, http.StatusOK, "Request rejected")
+		formatter.JSON(w, http.StatusOK, "Request rejected")
 	}
 }
 
@@ -82,6 +82,22 @@ func acceptRequest(formatter *render.Render, database Database) http.HandlerFunc
 			formatter.JSON(w, http.StatusNotFound, "Failed to update request.")
 			return
 		}
-		formatter.Text(w, http.StatusOK, "Request rejected")
+		formatter.JSON(w, http.StatusOK, "Request rejected")
+	}
+}
+
+func getFriendsHandler(formatter *render.Render, database Database) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		userID, err := getUserFromHeader(req, database)
+		if err != nil {
+			formatter.JSON(w, http.StatusBadRequest, err)
+			return
+		}
+		requests, err := database.getFriendRequestByID(userID)
+		if err != nil {
+			formatter.JSON(w, http.StatusNotFound, "Failed to get friends.")
+			return
+		}
+		formatter.JSON(w, http.StatusOK, requests)
 	}
 }

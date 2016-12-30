@@ -2,17 +2,8 @@ package service
 
 import "net/http"
 
-type Middleware struct {
-	auth bool
-}
-
-// NewMiddleware is a struct that has a ServeHTTP method
-func NewMiddleware() *Middleware {
-	return &Middleware{true}
-}
-
 // The middleware handler
-func (l *Middleware) ServeHTTP(w http.ResponseWriter, req *http.Request, next http.HandlerFunc) {
+func AuthMiddleware(w http.ResponseWriter, req *http.Request, next http.HandlerFunc) {
 	key := req.Header.Get("Authorization")
 	w.Header().Set("Content-Type", "application/json")
 	if key == "" {

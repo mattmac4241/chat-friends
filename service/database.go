@@ -23,8 +23,8 @@ type dataHandler struct{}
 func (d *dataHandler) getFriendRequestByUserFromAndTo(userFrom, userTo uint) (FriendRequest, error) {
 	var request FriendRequest
 	err := DB.QueryRow(`SELECT ID, USER_FROM_ID, USER_TO_ID, CREATED_AT, ACCEPTED_AT,
-		REJECTED_ID FROM friend_requests WHERE (user_id_from=$1 OR user_id_to=$1)
-		AND (user_id_from=$2 or user_id_to=$2);`, userFrom, userTo).Scan(request.ID,
+		REJECTED_ID FROM friend_requests WHERE (user_from_id=$1 OR user_to_id=$1)
+		AND (user_from_id=$2 or user_to_id=$2);`, userFrom, userTo).Scan(request.ID,
 		request.UserFromID, request.UserToID, request.CreatedAt, request.AcceptedAt,
 		request.RejectedAt)
 	return request, err
@@ -52,6 +52,16 @@ func (d *dataHandler) updateFriendRequest(request FriendRequest) error {
 		WHERE ID=$3 returning id;`, request.AcceptedAt, request.RejectedAt,
 		request.ID).Scan(lastInsertID)
 	return err
+}
+
+func (d *dataHandler) getFriendsByUserID(userID uint) ([]FriendRequest, error) {
+	rows, err := DB.Query(`SELECT * FROM friend_requests WHERE (user_from_id=$1
+        OR user_to_id=$1) AND accepted_at !=0`, userID)
+	if err != nil {
+		return []FriendRequest{}, err
+	}
+	requests := conevertRowsToRequests(rows)
+	return requests, nil
 }
 
 func (d *dataHandler) redisGetValue(key string) (string, error) {

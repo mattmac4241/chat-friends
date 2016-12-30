@@ -13,6 +13,7 @@ func NewServer() *negroni.Negroni {
 	})
 
 	n := negroni.Classic()
+	n.Use(negroni.HandlerFunc(AuthMiddleware))
 	mx := mux.NewRouter()
 	db := &dataHandler{}
 	initRoutes(mx, formatter, db)
@@ -24,4 +25,5 @@ func initRoutes(mx *mux.Router, formatter *render.Render, database Database) {
 	mx.HandleFunc("/friends/request", postAddFriend(formatter, database)).Methods("POST")
 	mx.HandleFunc("/friends/{id}/reject", rejectRequest(formatter, database)).Methods("PUT")
 	mx.HandleFunc("/friends/{id}/accept", acceptRequest(formatter, database)).Methods("PUT")
+	mx.HandleFunc("/friends", getFriendsHandler(formatter, database)).Methods("GET")
 }
