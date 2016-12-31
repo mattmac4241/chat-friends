@@ -2,7 +2,9 @@ package service
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -68,6 +70,16 @@ func (t *testDatabase) getFriendRequestByID(requestID uint) (FriendRequest, erro
 		}
 	}
 	return FriendRequest{}, errors.New("Request not found")
+}
+
+func (t *testDatabase) getFriendsByUserID(userID uint) ([]FriendRequest, error) {
+	var requests []FriendRequest
+	for _, request := range t.requests {
+		if request.UserFromID == userID || request.UserToID == userID {
+			requests = append(requests, request)
+		}
+	}
+	return requests, nil
 }
 
 func TestPostAddFriendHandlerWithoutAuthKey(t *testing.T) {
@@ -251,6 +263,112 @@ func TestAcceptRequestHandlerWithValidRequest(t *testing.T) {
 
 	if database.requests[0].AcceptedAt.Unix() <= 0 {
 		t.Error("Expected the reqeust to be rejected")
+	}
+}
+
+func TestGetFriendsHandlerWithoutValidToken(t *testing.T) {
+	database := &testDatabase{}
+
+	client := &http.Client{}
+	server := httptest.NewServer(http.HandlerFunc(getFriendsHandler(formatter, database)))
+	defer server.Close()
+
+	req, _ := http.NewRequest("GET", server.URL, nil)
+	resp, err := client.Do(req)
+
+	if err != nil {
+		t.Errorf("Error in POST to registerUserHandler: %v", err)
+	}
+
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Error("No auth token sent should have stopped it.")
+	}
+}
+
+func TestGetFriendsHandlerWithoutAnyFriends(t *testing.T) {
+	var friendRequests []FriendRequest
+
+	database := &testDatabase{}
+	database.redis = make(map[string]string)
+	database.redisSetValue("TEST", "1", time.Since(time.Now()))
+
+	database.insertFriendRequest(FriendRequest{
+		UserFromID: 2,
+		UserToID:   3,
+		AcceptedAt: time.Now(),
+	})
+
+	client := &http.Client{}
+	server := httptest.NewServer(http.HandlerFunc(getFriendsHandler(formatter, database)))
+	defer server.Close()
+
+	req, _ := http.NewRequest("GET", server.URL, nil)
+	req.Header.Add("Authorization", "TEST")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Errorf("Error in POST to registerUserHandler: %v", err)
+	}
+
+	defer resp.Body.Close()
+	payload, _ := ioutil.ReadAll(resp.Body)
+	json.Unmarshal(payload, &friendRequests)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected %v; received %v", http.StatusOK, resp.StatusCode)
+	}
+
+	if len(friendRequests) > 0 {
+		t.Errorf("Expected length to be 2 but instead got %d", len(friendRequests))
+	}
+}
+
+func TestGetFriendsHandlerWithFriends(t *testing.T) {
+	var friendRequests []FriendRequest
+
+	database := &testDatabase{}
+	database.redis = make(map[string]string)
+	database.redisSetValue("TEST", "1", time.Since(time.Now()))
+
+	database.insertFriendRequest(FriendRequest{
+		UserFromID: 2,
+		UserToID:   3,
+		AcceptedAt: time.Now(),
+	})
+
+	database.insertFriendRequest(FriendRequest{
+		UserFromID: 1,
+		UserToID:   3,
+		AcceptedAt: time.Now(),
+	})
+
+	database.insertFriendRequest(FriendRequest{
+		UserFromID: 1,
+		UserToID:   2,
+		AcceptedAt: time.Now(),
+	})
+
+	client := &http.Client{}
+	server := httptest.NewServer(http.HandlerFunc(getFriendsHandler(formatter, database)))
+	defer server.Close()
+
+	req, _ := http.NewRequest("GET", server.URL, nil)
+	req.Header.Add("Authorization", "TEST")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Errorf("Error in POST to registerUserHandler: %v", err)
+	}
+
+	defer resp.Body.Close()
+	payload, _ := ioutil.ReadAll(resp.Body)
+	json.Unmarshal(payload, &friendRequests)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected %v; received %v", http.StatusOK, resp.StatusCode)
+	}
+
+	if len(friendRequests) != 2 {
+		t.Errorf("Expected length to be 2 but instead got %d", len(friendRequests))
 	}
 }
 

@@ -16,6 +16,7 @@ type Database interface {
 	redisGetValue(key string) (string, error)
 	redisSetValue(key, value string, seconds time.Duration) error
 	getFriendRequestByID(requestID uint) (FriendRequest, error)
+	getFriendsByUserID(userID uint) ([]FriendRequest, error)
 }
 
 type dataHandler struct{}

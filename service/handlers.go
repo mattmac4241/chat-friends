@@ -96,11 +96,12 @@ func acceptRequestHandler(formatter *render.Render, database Database) http.Hand
 func getFriendsHandler(formatter *render.Render, database Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		userID, err := getUserFromHeader(req, database)
-		if err != nil {
-			formatter.JSON(w, http.StatusBadRequest, err)
+		if err != nil || userID == uint(0) {
+			formatter.JSON(w, http.StatusForbidden, err)
 			return
 		}
-		requests, err := database.getFriendRequestByID(userID)
+		requests, err := database.getFriendsByUserID(userID)
+
 		if err != nil {
 			formatter.JSON(w, http.StatusNotFound, "Failed to get friends.")
 			return
